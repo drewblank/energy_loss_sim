@@ -33,13 +33,13 @@ srim_executable_directory = r'C:\Users\drewblankstein\Documents\SRIM-2013'
 
 
 
-def main_func(m1_name,m1_mass,m1_energy,m1_Z,m1_A,m4_name,m4_mass,m4_Z,m4_A,gastype,gaspressure):
+def main_func(m1_name,m1_mass,m1_energy,m1_Z,m1_A,m4_name,m4_mass,m4_Z,m4_A,gastype,gaspressure,windowthick,reactionstrip):
         ############################################################################
         # INPUT  
         # Input information for incoming particle (m1), outgoing light particlce (m3)
         # and outgoing heavy recoil (m4.)
         ############################################################################
-        print("IN MAIN") 
+
         #this is the number of ions used in the TRIM calculation 
         num_ions= 25 
         #projectile info
@@ -89,9 +89,10 @@ def main_func(m1_name,m1_mass,m1_energy,m1_Z,m1_A,m4_name,m4_mass,m4_Z,m4_A,gast
         m4_A = 16.0
         """
         #the strip in which the reaction will take place
-        reaction_strip = 5
+        reaction_strip = int(reactionstrip)
         length = 0.157e9
-
+        dead_length = 0.230251e9
+        windowthick = 60000
         ############################################################################
         # PARTICLE CLASS DEFINITION
         # Each particle that will undergoe an energy loss calculation will be objects 
@@ -136,39 +137,41 @@ def main_func(m1_name,m1_mass,m1_energy,m1_Z,m1_A,m4_name,m4_mass,m4_Z,m4_A,gast
 
                 def window_eloss(self):
 
-                        beam_trim = TRIM(target, Ion(self.title, energy=self.E*1.0e6,mass=self.M), number_ions=num_ions, calculation=1)
+                        beam_trim = TRIM(window, Ion(self.title, energy=self.E*1.0e6,mass=self.M), number_ions=num_ions, calculation=1)
                         beam_results = beam_trim.run(srim_executable_directory)
 
                         beam_energy = beam_results.ioniz.ions*100
                         beam_depth = beam_results.ioniz.depth*1e-8
-
+                        print(beam_depth)
                         f = interp1d(beam_depth,beam_energy, kind='linear')
-                        xnew = np.linspace(0.0157,1.57,100)
+                        xnew = np.linspace(6.00010e-06,6.00000e-04,100)
                         ynew = f(xnew)
 
-                        eloss = integrate.quad(f,0.0157,1.57)[0]
+                        eloss = integrate.quad(f,6.00010e-06,6.00000e-04)[0]
 
                         self.E = self.E - eloss
-                        self.strip[strip_int] = eloss
+
+                        return eloss
 
 
 
-                def drift_eloss(self):
+                def dead_eloss(self):
 
-                        beam_trim = TRIM(target, Ion(self.title, energy=self.E*1.0e6,mass=self.M), number_ions=num_ions, calculation=1)
+                        beam_trim = TRIM(dead, Ion(self.title, energy=self.E*1.0e6,mass=self.M), number_ions=num_ions, calculation=1)
                         beam_results = beam_trim.run(srim_executable_directory)
 
                         beam_energy = beam_results.ioniz.ions*100
                         beam_depth = beam_results.ioniz.depth*1e-8
-
+                        
                         f = interp1d(beam_depth,beam_energy, kind='linear')
-                        xnew = np.linspace(0.0157,1.57,100)
+                        xnew = np.linspace(0.0230251,2.30251,100)
                         ynew = f(xnew)
 
-                        eloss = integrate.quad(f,0.0157,1.57)[0]
+                        eloss = integrate.quad(f,0.0230251,2.30251)[0]
 
                         self.E = self.E - eloss
-                        self.strip[strip_int] = eloss
+
+                        return eloss
 
 
                 def plot(self):
@@ -204,75 +207,56 @@ def main_func(m1_name,m1_mass,m1_energy,m1_Z,m1_A,m4_name,m4_mass,m4_Z,m4_A,gast
 
 
 
-	############################################################################
-	############################################################################
-	############################################################################
-	############################################################################
-
-
+############################################################################
+############################################################################
+############################################################################
+############################################################################
+        
 
         target = Target([setlayer(target_gas,gas_pressure,length)])
+        dead = Target([setlayer(target_gas,gas_pressure,dead_length)])
+        window = Target([setlayer('MYLAR',gas_pressure,windowthick)])
         plt.figure(figsize=(8, 6))
 
-
-        for j in range(0,1):
-
-                m1 = particle(m1_name, m1_A, m1_Z, m1_mass, m1_energy,'0.5','dashed') 
-                m4 = particle(m4_name, m4_A, m4_Z, m4_mass,      0,   'k','solid')
-                #	m3 = particle(m3_name, m3_A, m3_Z, m3_mass,      0,   'k','solid')
-                reaction_occured = False
-
-                for i in range(0,17):
-                        
-                        if(i == reaction_strip):
-
-                                m4.E = np.random.uniform(m1.E-1.0,m1.E-9.0)
-                #		m3.E = m1.E
-                                m4.strip[0:reaction_strip] = m1.strip[0:reaction_strip]
-                #		m3.strip[0:reaction_strip] = m1.strip[0:reaction_strip]
-
-                                #TO IMPLEMENT: Given the energy of m1 at the beginning of this strip, compute the energy and angle for the recoil (m4)
-                                #and use that energy to calculate the energy loss!
-                                m1.strip_eloss(i)
-                                m4.strip_eloss(i)
-                #		m3.strip_eloss(i)
-
-                                reaction_occured = True 
-
-                        elif(reaction_occured == True): 
-
-                                m1.strip_eloss(i)
-                                m4.strip_eloss(i)
-                                #			m3.strip_eloss()
-
-
-                        elif(reaction_occured == False):
-                                m1.strip_eloss(i)
+        m1 = particle(m1_name, m1_A, m1_Z, m1_mass, m1_energy,'0.5','dashed') 
+        m4 = particle(m4_name, m4_A, m4_Z, m4_mass,      0,   'k','solid')
 
 
 
-        return m1.strip,m4.strip
+        window_eloss = m1.window_eloss()
+        print(window_eloss)
+        dead_eloss = m1.dead_eloss()
+        print(dead_eloss)
+
+        reaction_occured = False
+        
+        for i in range(0,17):
+                
+                if(i == reaction_strip):
+
+                        m4.E = np.random.uniform(m1.E-1.0,m1.E-9.0)
+                        m4.strip[0:reaction_strip] = m1.strip[0:reaction_strip]   
+
+                        #TO IMPLEMENT: Given the energy of m1 at the beginning of this strip, compute the energy and angle for the recoil (m4)
+                        #and use that energy to calculate the energy loss!
+                        m1.strip_eloss(i)
+                        m4.strip_eloss(i)
+
+
+                        reaction_occured = True 
+
+                elif(reaction_occured == True): 
+
+                        m1.strip_eloss(i)
+                        m4.strip_eloss(i)
 
 
 
-
-"""
-print("############ OUTPUT ############")
-print("Beam energy loss through window: ", 0.0 , " MeV")
-print("Beam energy loss through dead region: ", 0.0 , " MeV")
+                elif(reaction_occured == False):
+                        m1.strip_eloss(i)
 
 
-i = 0 
-while i < 17:
-	print("Beam Energy Loss in Strip ", i ,": ", m1.strip[i]," MeV")
-	i+=1
 
-print("Total Beam Energy loss at ", gas_pressure, "Torr: ", m1.strip.sum()," MeV")
+        return window_eloss, dead_eloss, m1.strip, m4.strip
 
-i = reaction_strip 
-while i < 17:
-	print("Reaction Product Eloss in Strip ", i ,": ", m3.strip[i]," MeV")
-	i+=1
-print("##############################")
 
-"""
