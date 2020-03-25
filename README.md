@@ -15,7 +15,7 @@ Make sure you have the pysrim, matplotlib, numpy, and tkinter modules installed.
 
 SRIM must be installed on your computer either natively on windows or using WINE and some emulator on UNIX based operating systems. 
 
-Before running, make sure in main_program.py you have entered the directory where SRIM.exe as shown 
+Before running, make sure in main_program.py you have entered the directory where SRIM.exe is installed as shown 
 
 ```
 srim_executable_directory = r'C:\Users\drewblankstein\Documents\SRIM-2013'
